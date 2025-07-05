@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Công cụ Tra cứu Hàng hóa, Dịch vụ (Tích hợp AI)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .table-container {
+            max-height: 60vh;
+            overflow-y: auto;
+        }
+        thead th {
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        /* Custom scrollbar */
+        .table-container::-webkit-scrollbar {
+            width: 8px;
+        }
+        .table-container::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+        .table-container::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 4px;
+        }
+        .table-container::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+        /* Modal styles */
+        .modal {
+            transition: opacity 0.3s ease;
+        }
+        .modal-content {
+            transition: transform 0.3s ease;
+        }
+        /* Spinner */
+        .loader {
+            border-top-color: #3498db;
+            -webkit-animation: spinner 1.5s linear infinite;
+            animation: spinner 1.5s linear infinite;
+        }
+        @-webkit-keyframes spinner {
+            0% { -webkit-transform: rotate(0deg); }
+            100% { -webkit-transform: rotate(360deg); }
+        }
+        @keyframes spinner {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800">
+
+    <div class="container mx-auto p-4 sm:p-6 lg:p-8">
+        <header class="text-center mb-8">
+            <h1 class="text-2xl sm:text-3xl font-bold text-blue-700">Công cụ Tra cứu Hàng hóa, Dịch vụ không được giảm thuế GTGT</h1>
+            <p class="text-gray-600 mt-2">Dữ liệu từ Phụ lục I & II, Nghị định 174/2025/NĐ-CP - Tích hợp Gemini AI</p>
+        </header>
+
+        <main>
+            <div class="bg-white p-6 rounded-xl shadow-lg">
+                <!-- AI Search Section -->
+                <div class="bg-blue-50 border-2 border-dashed border-blue-200 p-4 rounded-lg mb-6">
+                     <label for="ai-search-input" class="block text-lg font-medium text-gray-700 mb-2">Tra cứu thông minh</label>
+                     <p class="text-sm text-gray-500 mb-3">Mô tả sản phẩm bạn muốn tìm (ví dụ: "ống thép dùng trong xây dựng", "dịch vụ tư vấn tài chính").</p>
+                     <textarea id="ai-search-input" rows="3" placeholder="Nhập mô tả sản phẩm ở đây..." class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-shadow"></textarea>
+                     <div class="mt-3 flex justify-center">
+                        <button id="ai-search-button" class="inline-flex items-center justify-center px-5 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-transform transform hover:scale-105">
+                            ✨ Gửi yêu cầu cho AI
+                        </button>
+                     </div>
+                </div>
+
+                <!-- Manual Search Section -->
+                <div class="mb-6">
+                    <label for="search-input" class="block text-lg font-medium text-gray-700 mb-2">Tìm kiếm thủ công</label>
+                    <input type="text" id="search-input" placeholder="Nhập tên sản phẩm, mã sản phẩm hoặc mã HS..." class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-shadow">
+                </div>
+
+                <div class="table-container border border-gray-200 rounded-lg">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-blue-600 text-white">
+                            <tr>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Mã sản phẩm</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Tên sản phẩm</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Mã số HS</th>
+                                <th scope="col" class="px-4 py-3 text-center text-xs font-medium uppercase tracking-wider">Thao tác</th>
+                            </tr>
+                        </thead>
+                        <tbody id="product-table-body" class="bg-white divide-y divide-gray-200">
+                            <!-- Dữ liệu sẽ được chèn vào đây bằng JavaScript -->
+                        </tbody>
+                    </table>
+                </div>
+                 <div class="mt-4 text-right">
+                    <p class="text-sm text-gray-500">Hiển thị <span id="rowCount">0</span> kết quả.</p>
+                </div>
+            </div>
+        </main>
+
+        <footer class="text-center mt-8 text-sm text-gray-500">
+            <p><strong>Ghi chú:</strong> Mã số HS ở cột (10) trong văn bản gốc chỉ để tra cứu. Việc xác định mã số HS đối với hàng hoá thực tế nhập khẩu thực hiện theo quy định về phân loại hàng hoá tại Luật Hải quan và các văn bản quy phạm pháp luật hướng dẫn thi hành Luật Hải quan.</p>
+        </footer>
+    </div>
+
+    <!-- AI Modal -->
+    <div id="ai-modal" class="modal fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center p-4 z-50 hidden opacity-0">
+        <div class="modal-content bg-white rounded-lg shadow-xl w-full max-w-2xl p-6 transform -translate-y-10">
+            <div class="flex justify-between items-start">
+                <h3 class="text-2xl font-bold text-blue-800" id="modal-title">Phản hồi từ AI</h3>
+                <button id="close-modal-button" class="text-gray-400 hover:text-gray-600">
+                    <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+            </div>
+            <div id="modal-body" class="mt-4 text-gray-700 space-y-4">
+                <!-- Loader -->
+                <div id="modal-loader" class="flex justify-center items-center py-10">
+                    <div class="loader ease-linear rounded-full border-8 border-t-8 border-gray-200 h-24 w-24"></div>
+                </div>
+                <!-- Content -->
+                <div id="modal-content-area" class="prose max-w-none"></div>
+            </div>
+        </div>
+    </div>
+
+
+    <script>
+        // Dữ liệu được trích xuất từ file PDF
+        const products = [
+            { code: '0610010', name: 'Dầu mỏ và dầu thu được từ khoáng bitum, ở dạng thô', hsCode: '27.09' },
+            { code: '0610020', name: 'Đá phiến sét dầu hoặc đá phiến sét bitum, cát hắc ín', hsCode: '2714.10.00' },
+            { code: '0620001', name: 'Khí tự nhiên dạng hóa lỏng', hsCode: '2711.11.00' },
+            { code: '0620002', name: 'Khí tự nhiên dạng khí', hsCode: '2711.21' },
+            { code: '0710000', name: 'Quặng sắt và tinh quặng sắt', hsCode: '2601.11, 2601.12, 2601.20' },
+            { code: '0721000', name: 'Quặng uranium, quặng thorium và tinh các loại quặng đó', hsCode: '26.12' },
+            { code: '0722100', name: 'Quặng bôxít và tinh quặng bôxit', hsCode: '2606.00.00' },
+            { code: '0722911', name: 'Quặng mangan và tinh quặng mangan', hsCode: '2602.00.00' },
+            { code: '0722912', name: 'Quặng đồng và tỉnh quặng đồng', hsCode: '2603.00.00' },
+            { code: '0722913', name: 'Quặng niken và tinh quặng niken', hsCode: '2604.00.00' },
+            { code: '0722914', name: 'Quặng coban và tinh quặng coban', hsCode: '2605.00.00' },
+            { code: '0722915', name: 'Quặng crôm và tỉnh quặng crôm', hsCode: '2610.00.00' },
+            { code: '0722916', name: 'Quặng vonfram và tỉnh quặng vonfram', hsCode: '2611.00.00' },
+            { code: '0722921', name: 'Quặng chì và tỉnh quặng chì', hsCode: '2607.00.00' },
+            { code: '0722922', name: 'Quặng kẽm và tinh quặng kẽm', hsCode: '2608.00.00' },
+            { code: '0722923', name: 'Quặng thiếc và tỉnh quặng thiếc', hsCode: '2609.00.00' },
+            { code: '0722930', name: 'Quặng molipden và tinh quặng molipden', hsCode: '26.13' },
+            { code: '0722941', name: 'Quặng ilmenite và tinh quặng ilmenite', hsCode: '2614.00.10' },
+            { code: '0722942', name: 'Quặng rutil và tinh quặng rutil', hsCode: '2614.00.90' },
+            { code: '0722943', name: 'Quặng monazite và tinh quặng monazite', hsCode: '2612.20.00' },
+            { code: '0722950', name: 'Quặng antimon và tinh quặng antimon', hsCode: '2617.10.00' },
+            { code: '0722961', name: 'Quặng zircon và tỉnh quặng zircon', hsCode: '2615.10.00' },
+            { code: '0722962', name: 'Quặng niobi tantali, vanadi và tinh quặng niobi', hsCode: '2615.90.00' },
+            { code: '0722990', name: 'Quặng và tinh quặng kim loại khác không chứa sắt chưa được phân vào đâu còn lại', hsCode: '2617.90.00' },
+            { code: '0730001', name: 'Quặng bạc và tỉnh quặng bạc', hsCode: '2616.10.00' },
+            { code: '0730002', name: 'Quặng vàng và tinh quặng vàng', hsCode: '2616.90.00' },
+            { code: '0730003', name: 'Quặng bạch kim và tinh quặng bạch kim', hsCode: '2616.90.00' },
+            { code: '0810111', name: 'Đá cẩm thạch (đá hoa), đá hoa trắng, travertine, ecausine và đá vôi khác', hsCode: '25.15' },
+            { code: '0810112', name: 'Đá granit, đá pocfia, bazan, đá cát kết (sa thạch), đá quartzite và đá khác', hsCode: '25.16' },
+            { code: '0810121', name: 'Đá vôi và các loại đá có chứa canxi khác dùng để sản xuất vôi hoặc xi măng', hsCode: '2521.00.00' },
+            { code: '0810122', name: 'Thạch cao, thạch cao khan', hsCode: '2520.10.00' },
+            { code: '0810131', name: 'Đá phấn', hsCode: '2509.00.00' },
+            { code: '0810132', name: 'Dolomit chưa nung hoặc thiêu kết', hsCode: '25.18' },
+            { code: '0810140', name: 'Đá phiến, đã hoặc chưa đẽo thô hay mới chỉ cắt thành khối hoặc tấm', hsCode: '2514.00.00' },
+            { code: '0810210', name: 'Cát tự nhiên, đã hoặc chưa nhuộm màu', hsCode: '25.05' },
+            { code: '0810221', name: 'Sỏi, đá cuội', hsCode: '2517.10.00' },
+            { code: '0810222', name: 'Đá dạng viên, dạng mảnh vụn và dạng bột', hsCode: '2517.41.00, 2517.49.00' },
+            { code: '0810310', name: 'Cao lanh và đất sét cao lanh khác đã hoặc chưa nung', hsCode: '2507.00.00' },
+            { code: '0810320', name: 'Đất sét khác, andalusite, kyanite và silimanite, mullite; đất chịu lửa hay đất dinas', hsCode: '25.08' },
+            { code: '0891010', name: 'Canxi phosphat tự nhiên, canxi phosphat nhôm tự nhiên và đá phấn có chứa phosphat', hsCode: '25.10' },
+            { code: '0891020', name: 'Quặng Pirit sắt chưa nung', hsCode: '2502.00.00' },
+            { code: '0891091', name: 'Bari sulfat tự nhiên, bari carbonat tự nhiên', hsCode: '25.11' },
+            { code: '0891092', name: 'Quặng borat tự nhiên, tỉnh quặng borat tự nhiên', hsCode: '2528.00.00' },
+            { code: '0891093', name: 'Khoáng flourit', hsCode: '2529.21.00, 2529.22.00' },
+            { code: '0893000', name: 'Muối', hsCode: '25.01' },
+            { code: '0899011', name: 'Đá quí, đá bán quí chưa được gia công', hsCode: '7103.10' },
+            { code: '0899012', name: 'Kim cương (trừ kim cương công nghiệp)', hsCode: '7102.10.00, 7102.31.00, 7102.39.00' },
+            { code: '0899091', name: 'Quặng graphit tự nhiên', hsCode: '25.04' },
+            { code: '2410011', name: 'Gang, gang thỏi không hợp kim; gang thỏi hợp kim; gang thỏi giàu mangan', hsCode: '72.01, 7204.10.00, 72.05, 73.03' },
+            { code: '2410012', name: 'Hợp kim sắt (hợp kim Fero)', hsCode: '72.02' },
+            { code: '2410021', name: 'Thép không hợp kim dạng thỏi đúc hoặc dạng thô khác', hsCode: '72.06, 72.07' },
+            { code: '2410022', name: 'Thép không gỉ dạng thỏi hoặc dạng cơ bản thô khác', hsCode: '72.18' },
+            { code: '2410023', name: 'Thép hợp kim khác dạng thỏi đúc hoặc dạng thô khác', hsCode: '72.24' },
+            { code: '2410031', name: 'Thép không hợp kim cuộn phẳng không gia công quá mức cuộn nóng, rộng >= 600mm', hsCode: '72.08' },
+            { code: '2410032', name: 'Thép không gỉ cuộn phẳng không gia công quá mức cuộn nóng, rộng >= 600mm', hsCode: '7219.11.00 - 7219.24.00' },
+            { code: '2410041', name: 'Thép không hợp kim cuộn phẳng không gia công quá mức cuộn nguội, rộng >= 600mm', hsCode: '72.09' },
+            { code: '2410071', name: 'Ống bằng Thép không nối ghép', hsCode: '73.04' },
+            { code: '2410072', name: 'Ống và ống dẫn bằng thép có nối ghép', hsCode: '73.05, 73.06' },
+            { code: '2410084', name: 'Dây thép', hsCode: '72.17, 72.23, 72.29' },
+            { code: '2420101', name: 'Kim loại quý', hsCode: '71.06, 7107.00.00, 71.08, 7109.00.00, 71.10, 71.11, 71.12' },
+            { code: '2420211', name: 'Nhôm chưa gia công, nhôm ôxit', hsCode: '76.01, 2818.20.00' },
+            { code: '2420221', name: 'Chì, kẽm, thiếc chưa gia công', hsCode: '78.01, 79.01, 80.01' },
+            { code: '2420231', name: 'Đồng, hợp kim đồng chưa gia công, sten đồng, đồng xi măng', hsCode: '7401.00.10 - 7405.00.00' },
+            { code: '2420241', name: 'Niken chưa gia công; Sản phẩm trung gian của quá trình luyện niken', hsCode: '75.01, 75.02, 7503.00.00' },
+            { code: '2431001', name: 'Khuôn đúc bằng gang, thép', hsCode: '8480.10.00 - 8480.49.00' },
+            { code: 'J', name: 'DỊCH VỤ THÔNG TIN VÀ TRUYỀN THÔNG', hsCode: '' },
+            { code: '61', name: 'Dịch vụ viễn thông', hsCode: '' },
+            { code: 'K', name: 'DỊCH VỤ TÀI CHÍNH, NGÂN HÀNG VÀ BẢO HIỂM', hsCode: '' },
+            { code: '64', name: 'Dịch vụ tài chính (trừ dịch vụ bảo hiểm và dịch vụ bảo hiểm xã hội)', hsCode: '' },
+            { code: '65', name: 'Dịch vụ bảo hiểm, tái bảo hiểm và bảo hiểm xã hội', hsCode: '' },
+            { code: '66', name: 'Dịch vụ tài chính khác', hsCode: '' },
+            { code: 'L', name: 'DỊCH VỤ KINH DOANH BẤT ĐỘNG SẢN', hsCode: '' },
+            { code: '68', name: 'Dịch vụ kinh doanh bất động sản', hsCode: '' },
+            { code: '6820', name: 'Dịch vụ tư vấn, môi giới, đấu giá bất động sản, đấu giá quyền sử dụng đất', hsCode: '' },
+            { code: 'TTDB', name: 'Thuốc lá điếu, xì gà và chế phẩm khác từ cây thuốc lá', hsCode: '' },
+            { code: 'TTDB', name: 'Rượu', hsCode: '' },
+            { code: 'TTDB', name: 'Bia', hsCode: '' },
+            { code: 'TTDB', name: 'Xe ô tô dưới 24 chỗ', hsCode: '' },
+            { code: 'TTDB', name: 'Xe mô tô hai bánh, ba bánh có dung tích xi lanh trên 125 cm³', hsCode: '' },
+            { code: 'TTDB', name: 'Tàu bay, du thuyền', hsCode: '' },
+            { code: 'TTDB', name: 'Điều hoà nhiệt độ công suất từ 90.000 BTU trở xuống', hsCode: '' },
+            { code: 'TTDB', name: 'Bài lá', hsCode: '' },
+            { code: 'TTDB', name: 'Vàng mã, hàng mã', hsCode: '' },
+            { code: 'TTDB', name: 'Kinh doanh vũ trường', hsCode: '' },
+            { code: 'TTDB', name: 'Kinh doanh mát-xa (massage), ka-ra-ô-kê (karaoke)', hsCode: '' },
+            { code: 'TTDB', name: 'Kinh doanh ca-si-nô (casino); trò chơi điện tử có thưởng', hsCode: '' },
+            { code: 'TTDB', name: 'Kinh doanh đặt cược', hsCode: '' },
+            { code: 'TTDB', name: 'Kinh doanh gôn (golf)', hsCode: '' },
+            { code: 'TTDB', name: 'Kinh doanh xổ số', hsCode: '' },
+            { code: 'TTDB', name: 'Nước giải khát theo TCVN có hàm lượng đường trên 5g/100ml (áp dụng từ 01/01/2026)', hsCode: '' }
+        ];
+
+        // DOM Elements
+        const tableBody = document.getElementById('product-table-body');
+        const searchInput = document.getElementById('search-input');
+        const rowCountSpan = document.getElementById('rowCount');
+        const aiSearchInput = document.getElementById('ai-search-input');
+        const aiSearchButton = document.getElementById('ai-search-button');
+        const modal = document.getElementById('ai-modal');
+        const modalTitle = document.getElementById('modal-title');
+        const modalLoader = document.getElementById('modal-loader');
+        const modalContentArea = document.getElementById('modal-content-area');
+        const closeModalButton = document.getElementById('close-modal-button');
+
+        // --- Gemini API Configuration ---
+        const API_KEY = "AIzaSyAKd0uUXOYMUlnEYqovfSbgZvCcm3dOSZQ"; // NOTE: An API key is required for models other than gemini-2.0-flash.
+        const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${API_KEY}`;
+
+        // --- Modal Functions ---
+        function showModal(title) {
+            modalTitle.textContent = title;
+            modal.classList.remove('hidden');
+            setTimeout(() => modal.classList.remove('opacity-0'), 10);
+            setTimeout(() => modal.querySelector('.modal-content').classList.remove('-translate-y-10'), 10);
+            modalLoader.classList.remove('hidden');
+            modalContentArea.classList.add('hidden');
+            modalContentArea.innerHTML = '';
+        }
+
+        function hideModal() {
+            modal.classList.add('opacity-0');
+            modal.querySelector('.modal-content').classList.add('-translate-y-10');
+            setTimeout(() => modal.classList.add('hidden'), 300);
+        }
+
+        function showModalContent(htmlContent) {
+            modalLoader.classList.add('hidden');
+            modalContentArea.innerHTML = htmlContent;
+            modalContentArea.classList.remove('hidden');
+        }
+
+        function showModalError(errorMessage) {
+            showModalContent(`<div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
+                <strong class="font-bold">Lỗi!</strong>
+                <span class="block sm:inline">${errorMessage}</span>
+            </div>`);
+        }
+        
+        // --- Gemini API Call ---
+        async function callGeminiAPI(prompt) {
+             if (!API_KEY && !API_URL.includes('gemini-2.0-flash')) {
+                showModalError("Vui lòng cung cấp API Key để sử dụng tính năng này.");
+                return;
+            }
+            
+            const payload = {
+                contents: [{ role: "user", parts: [{ text: prompt }] }]
+            };
+
+            try {
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) {
+                    throw new Error(`API request failed with status ${response.status}`);
+                }
+
+                const result = await response.json();
+                
+                if (result.candidates && result.candidates.length > 0 && result.candidates[0].content && result.candidates[0].content.parts && result.candidates[0].content.parts.length > 0) {
+                    // Simple markdown to HTML conversion
+                    let text = result.candidates[0].content.parts[0].text;
+                    text = text.replace(/\n/g, '<br>');
+                    text = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+                    showModalContent(text);
+                } else {
+                     throw new Error("Không nhận được phản hồi hợp lệ từ AI. Vui lòng thử lại.");
+                }
+            } catch (error) {
+                console.error("Gemini API Error:", error);
+                showModalError(`Không thể kết nối đến AI. Lỗi: ${error.message}. Hãy kiểm tra API Key và kết nối mạng.`);
+            }
+        }
+
+        // --- Feature 1: AI-Powered Search ---
+        aiSearchButton.addEventListener('click', () => {
+            const userInput = aiSearchInput.value.trim();
+            if (!userInput) {
+                alert('Vui lòng nhập mô tả sản phẩm.');
+                return;
+            }
+            showModal('✨ AI đang tìm kiếm...');
+            const prompt = `Dựa vào danh sách sản phẩm theo luật thuế Việt Nam sau đây: ${JSON.stringify(products)}. Hãy phân tích mô tả của người dùng: "${userInput}". Từ mô tả này, hãy tìm ra sản phẩm phù hợp nhất trong danh sách và trả về tên sản phẩm, mã sản phẩm, và mã HS của nó. Trình bày kết quả một cách rõ ràng. Nếu không chắc chắn, hãy nói là bạn không tìm thấy thông tin chính xác và đề xuất các sản phẩm gần đúng nếu có.`;
+            callGeminiAPI(prompt);
+        });
+
+        // --- Feature 2: AI-Powered Explanation ---
+        function handleExplainClick(product) {
+            showModal(`✨ AI đang giải thích về "${product.name}"...`);
+            const prompt = `Hãy giải thích một cách đơn giản và ngắn gọn (khoảng 3-4 câu) về sản phẩm sau dành cho người không có chuyên môn về hải quan:
+            - Tên sản phẩm: "${product.name}"
+            - Mã sản phẩm: "${product.code}"
+            - Mã HS: "${product.hsCode}"
+            Nội dung giải thích cần bao gồm: sản phẩm này là gì, mục đích sử dụng chính, và những điểm cần lưu ý khi phân loại theo Nghị định 174/2025/NĐ-CP của Việt Nam.`;
+            callGeminiAPI(prompt);
+        }
+
+        // --- Table Rendering and Filtering ---
+        function renderTable(data) {
+            tableBody.innerHTML = '';
+            if (data.length === 0) {
+                tableBody.innerHTML = `<tr><td colspan="4" class="text-center py-10 text-gray-500">Không tìm thấy kết quả phù hợp.</td></tr>`;
+                rowCountSpan.textContent = '0';
+                return;
+            }
+            
+            data.forEach(product => {
+                const row = document.createElement('tr');
+                row.className = 'hover:bg-gray-50';
+                
+                row.innerHTML = `
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${product.code}</td>
+                    <td class="px-6 py-4 whitespace-normal text-sm text-gray-600">${product.name}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">${product.hsCode}</td>
+                    <td class="px-4 py-4 whitespace-nowrap text-center text-sm font-medium">
+                        <button class="explain-btn text-blue-600 hover:text-blue-900 transition-colors">✨ Giải thích</button>
+                    </td>
+                `;
+                
+                row.querySelector('.explain-btn').addEventListener('click', () => handleExplainClick(product));
+                tableBody.appendChild(row);
+            });
+            rowCountSpan.textContent = data.length;
+        }
+
+        function filterData() {
+            const searchTerm = searchInput.value.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+            
+            const filteredProducts = products.filter(product => {
+                const name = product.name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+                const code = product.code.toLowerCase();
+                const hsCode = product.hsCode.toLowerCase();
+                
+                return name.includes(searchTerm) || code.includes(searchTerm) || hsCode.includes(searchTerm);
+            });
+            
+            renderTable(filteredProducts);
+        }
+
+        // --- Event Listeners ---
+        searchInput.addEventListener('keyup', filterData);
+        closeModalButton.addEventListener('click', hideModal);
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                hideModal();
+            }
+        });
+
+        // Initial render of the table
+        renderTable(products);
+    </script>
+
+</body>
+</html>
